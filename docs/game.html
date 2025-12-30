@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossword Puzzle Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1 id="puzzle-title">Loading...</h1>
+            <p id="puzzle-level">Level 1</p>
+        </div>
+
+        <div class="crossword-container">
+            <div id="crossword-grid"></div>
+        </div>
+
+        <div class="clues-container">
+            <div class="clue-list-wrapper">
+                <h2>Across</h2>
+                <ol id="across-clues"></ol>
+            </div>
+            <div class="clue-list-wrapper">
+                <h2>Down</h2>
+                <ol id="down-clues"></ol>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="check-btn">Check Puzzle</button>
+        </div>
+    </div>
+
+    <div id="success-overlay" class="hidden">
+        <div class="success-box">
+            <h2>🎉 Congratulations! 🎉</h2>
+            <p>You've completed the puzzle!</p>
+        </div>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+        <h3>Admin Panel</h3>
+        <p>Secret panel activated!</p>
+    </div>
+
+    <audio src="music.mp3" autoplay loop></audio>
+
+    <script src="script.js"></script>
+</body>
+</html>

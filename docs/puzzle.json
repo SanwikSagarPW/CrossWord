@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "title": "Chemistry Crossword",
+    "author": "Chemistry Tutor",
+    "size": {
+      "rows": 12,
+      "cols": 12
+    }
+  },
+  "clues": {
+    "across": [
+      {
+        "number": 1,
+        "clue": "Basic unit of matter",
+        "answer": "ATOM",
+        "direction": "across",
+        "row": 0,
+        "col": 0
+      },
+      {
+        "number": 4,
+        "clue": "Basic substances (pH > 7)",
+        "answer": "ALKALINE",
+        "direction": "across",
+        "row": 2,
+        "col": 2
+      },
+      {
+        "number": 7,
+        "clue": "Common compound, NH₃",
+        "answer": "AMMONIA",
+        "direction": "across",
+        "row": 6,
+        "col": 0
+      }
+    ],
+    "down": [
+      {
+        "number": 1,
+        "clue": "Negatively charged particle",
+        "answer": "ANION",
+        "direction": "down",
+        "row": 0,
+        "col": 0
+      },
+      {
+        "number": 9,
+        "clue": "Substance that turns blue litmus red",
+        "answer": "ACID",
+        "direction": "down",
+        "row": 6,
+        "col": 0
+      },
+      {
+        "number": 2,
+        "clue": "SI unit for amount of substance",
+        "answer": "MOLE",
+        "direction": "down",
+        "row": 0,
+        "col": 3
+      },
+      {
+        "number": 3,
+        "clue": "Having a pH below 7",
+        "answer": "ACIDIC",
+        "direction": "down",
+        "row": 0,
+        "col": 7
+      },
+      {
+        "number": 8,
+        "clue": "Substance with pH greater than 7",
+        "answer": "BASE",
+        "direction": "down",
+        "row": 5,
+        "col": 6
+      },
+      {
+        "number": 10,
+        "clue": "Metal used in thermometers",
+        "answer": "MERCURY",
+        "direction": "down",
+        "row": 1,
+        "col": 9
+      },
+      {
+        "number": 11,
+        "clue": "Radioactive element once used in glow-in-the-dark paint",
+        "answer": "RADIUM",
+        "direction": "down",
+        "row": 1,
+        "col": 2
+      }
+    ]
+  }
+}
