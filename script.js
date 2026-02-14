@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeClueInfo = null;
     let lastFocusedCell = { row: -1, col: -1 };
 
+    // Analytics Setup
+    const analytics = new AnalyticsManager();
+    analytics.initialize('crossword_puzzle', 'session_' + Date.now());
+    let levelStartTime = 0;
+    let currentLevelId = null;
+    let checkAttempts = 0;
+
     // --- GAME FLOW & INITIALIZATION ---
 
     async function startGame() {
@@ -33,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeGame() {
         lastFocusedCell = { row: -1, col: -1 };
         currentDirection = 'across';
+        checkAttempts = 0;
         try {
             const { metadata, clues } = currentPuzzleData;
             const { rows, cols } = metadata.size;
@@ -50,6 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderGrid(rows, cols);
             renderClues(clues.across, acrossCluesElement, 'across');
             renderClues(clues.down, downCluesElement, 'down');
+
+            // Start analytics tracking for this level
+            currentLevelId = 'level_' + metadata.title.toLowerCase().replace(/\s+/g, '_');
+            analytics.startLevel(currentLevelId);
+            levelStartTime = Date.now();
+            console.log('[Analytics] Level started:', currentLevelId);
         } catch (error) {
             console.error("CRITICAL ERROR building puzzle:", error);
             alert("A critical error occurred while building the puzzle.");
@@ -246,6 +260,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkPuzzle() {
         const inputs = document.querySelectorAll('.cell-input');
         let allCorrect = true;
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let emptyCount = 0;
+        
+        checkAttempts++;
+        
         inputs.forEach(input => {
             input.classList.remove('correct', 'incorrect');
             const enteredValue = input.value.toUpperCase();
@@ -253,18 +273,52 @@ document.addEventListener('DOMContentLoaded', () => {
             if (enteredValue) {
                 if (enteredValue === correctValue) {
                     input.classList.add('correct');
-                    input.readOnly = true; 
+                    input.readOnly = true;
+                    correctCount++;
                 } else {
                     allCorrect = false;
                     input.classList.add('incorrect');
-                    input.readOnly = false; 
+                    input.readOnly = false;
+                    incorrectCount++;
                 }
             } else {
                 allCorrect = false;
-                input.readOnly = false; 
+                input.readOnly = false;
+                emptyCount++;
             }
         });
+
+        // Track this check attempt as a task
+        const totalCells = inputs.length;
+        const accuracy = totalCells > 0 ? (correctCount / totalCells * 100).toFixed(1) : 0;
+        analytics.recordTask(
+            currentLevelId,
+            'check_attempt_' + checkAttempts,
+            `Check Puzzle Attempt #${checkAttempts}`,
+            'all_correct',
+            allCorrect ? 'all_correct' : 'has_errors',
+            Date.now() - levelStartTime,
+            allCorrect ? 50 : 10
+        );
+        
+        // Add metrics
+        analytics.addRawMetric('check_attempts', checkAttempts);
+        analytics.addRawMetric('accuracy_percent', accuracy);
+        analytics.addRawMetric('correct_cells', correctCount);
+        analytics.addRawMetric('incorrect_cells', incorrectCount);
+        analytics.addRawMetric('empty_cells', emptyCount);
+        
         if (allCorrect) {
+            const timeTaken = Date.now() - levelStartTime;
+            const baseXP = 100;
+            const timeBonus = Math.max(0, 50 - Math.floor(timeTaken / 10000)); // Bonus for speed
+            const attemptBonus = Math.max(0, 50 - (checkAttempts - 1) * 10); // Bonus for fewer attempts
+            const totalXP = baseXP + timeBonus + attemptBonus;
+            
+            analytics.endLevel(currentLevelId, true, timeTaken, totalXP);
+            analytics.submitReport();
+            console.log('[Analytics] Puzzle completed! XP earned:', totalXP);
+            
             successOverlay.classList.remove('hidden');
         } else {
             alert('Not quite right! The incorrect cells are marked in red.');
@@ -305,6 +359,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     checkButton.addEventListener('click', checkPuzzle);
+    
+    // Track incomplete sessions when user leaves
+    window.addEventListener('beforeunload', () => {
+        if (currentLevelId && levelStartTime > 0) {
+            const level = analytics._getLevelById(currentLevelId);
+            if (level && !level.successful) {
+                const timeTaken = Date.now() - levelStartTime;
+                analytics.endLevel(currentLevelId, false, timeTaken, 0);
+                analytics.submitReport();
+                console.log('[Analytics] Session ended (incomplete)');
+            }
+        }
+    });
     
     // Start Game
     startGame();

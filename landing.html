@@ -333,11 +333,125 @@
             display: none;
         }
 
-        .how-to-play-img {
+        /* How to Play Content Styles */
+        .how-to-play-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            box-shadow: 0 10px 40px rgba(3, 218, 198, 0.2);
+            border: 2px solid var(--accent-color);
+        }
+
+        .how-to-title {
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 40px;
+            color: var(--text-color);
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .title-letter {
+            display: inline-block;
+            border: 3px solid var(--accent-color);
+            padding: 5px 15px;
+            margin: 0 3px;
+            background-color: rgba(3, 218, 198, 0.1);
+            border-radius: 5px;
+            color: var(--accent-color);
+        }
+
+        .title-letter sub {
+            font-size: 0.5em;
+            color: var(--accent-color);
+            vertical-align: sub;
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 35px;
+            padding: 20px;
+            background-color: rgba(3, 218, 198, 0.05);
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .instruction-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--accent-color);
+            background-color: rgba(3, 218, 198, 0.2);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            flex-shrink: 0;
+            border: 2px solid var(--accent-color);
+        }
+
+        .instruction-text {
+            flex: 1;
+            color: var(--text-color);
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .instruction-text strong {
+            color: var(--accent-color);
+        }
+
+        .instruction-visual {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
             width: 100%;
-            max-width: 100%;
-            height: auto;
-            display: block;
+        }
+
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 3px;
+            margin: 10px 0;
+        }
+
+        .mini-cell {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(68, 68, 68, 0.5);
+            background-color: rgba(42, 42, 42, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--text-color);
+            border-radius: 4px;
+        }
+
+        .mini-cell.filled {
+            background-color: rgba(3, 218, 198, 0.15);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .check-demo-btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-family: 'Roboto Mono', monospace;
+            font-weight: bold;
+            background-color: var(--accent-color);
+            color: var(--background-color);
+            border: none;
+            border-radius: 8px;
+            cursor: default;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(3, 218, 198, 0.4);
         }
 
         .back-btn {
@@ -403,6 +517,55 @@
                 padding: 12px 40px;
                 font-size: 1em;
             }
+
+            .how-to-play-content {
+                padding: 25px 20px;
+            }
+
+            .how-to-title {
+                font-size: 1.8em;
+                margin-bottom: 30px;
+            }
+
+            .title-letter {
+                padding: 3px 10px;
+                margin: 0 2px;
+            }
+
+            .instruction-item {
+                flex-direction: column;
+                padding: 15px;
+                margin-bottom: 25px;
+            }
+
+            .instruction-number {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5em;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+
+            .instruction-text {
+                font-size: 1em;
+            }
+
+            .mini-grid {
+                grid-template-columns: repeat(4, 40px);
+                grid-template-rows: repeat(3, 40px);
+                gap: 2px;
+            }
+
+            .mini-cell {
+                width: 40px;
+                height: 40px;
+                font-size: 1em;
+            }
+
+            .check-demo-btn {
+                padding: 12px 30px;
+                font-size: 1em;
+            }
         }
 
         @media (max-width: 400px) {
@@ -416,6 +579,21 @@
 
             .back-btn {
                 padding: 10px 30px;
+                font-size: 0.9em;
+            }
+
+            .how-to-title {
+                font-size: 1.5em;
+            }
+
+            .mini-grid {
+                grid-template-columns: repeat(4, 35px);
+                grid-template-rows: repeat(3, 35px);
+            }
+
+            .mini-cell {
+                width: 35px;
+                height: 35px;
                 font-size: 0.9em;
             }
         }
@@ -474,7 +652,41 @@
     <!-- How to Play Popup -->
     <div class="popup-overlay" id="howToPopup">
         <div class="popup-content">
-            <img src="how_to_play.png" alt="How to Play Instructions" class="how-to-play-img" id="howToPlayImg">
+            <div class="how-to-play-content">
+                <h2 class="how-to-title"><span class="title-letter">H</span>ow <span class="title-letter">T</span>o <span class="title-letter">P<sub>La</sub></span>y</h2>
+                
+                <div class="instruction-item">
+                    <div class="instruction-number">1</div>
+                    <div class="instruction-text">
+                        <strong>Type in the chemistry themed crossword puzzle</strong>
+                    </div>
+                    <div class="instruction-visual">
+                        <div class="mini-grid">
+                            <div class="mini-cell"></div>
+                            <div class="mini-cell filled">A</div>
+                            <div class="mini-cell"></div>
+                            <div class="mini-cell"></div>
+                            <div class="mini-cell filled">M</div>
+                            <div class="mini-cell filled">O</div>
+                            <div class="mini-cell filled">L</div>
+                            <div class="mini-cell filled">E</div>
+                            <div class="mini-cell"></div>
+                            <div class="mini-cell filled">M</div>
+                            <div class="mini-cell"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="instruction-item">
+                    <div class="instruction-number">2</div>
+                    <div class="instruction-text">
+                        <strong>Click 'CHECK' to verify your answer</strong>
+                    </div>
+                    <div class="instruction-visual">
+                        <button class="check-demo-btn">CHECK</button>
+                    </div>
+                </div>
+            </div>
             <button class="back-btn" id="backBtn">BACK</button>
         </div>
     </div>
@@ -496,7 +708,6 @@
         const backBtn = document.getElementById('backBtn');
         const gameTitleImg = document.getElementById('gameTitleImg');
         const gameTitleText = document.getElementById('gameTitleText');
-        const howToPlayImg = document.getElementById('howToPlayImg');
         const bgAnimation = document.getElementById('bgAnimation');
         const bgMusic = document.getElementById('bgMusic');
         const musicControl = document.getElementById('musicControl');
@@ -697,11 +908,6 @@
         // Check if game title image exists
         gameTitleImg.addEventListener('error', function() {
             console.error('Game title image not found');
-        });
-
-        // Check if how to play image exists
-        howToPlayImg.addEventListener('error', function() {
-            this.style.display = 'none';
         });
 
         // Play button - redirects to game
