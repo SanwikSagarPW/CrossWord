@@ -218,6 +218,18 @@ class AnalyticsManager {
     // attempt send
     const ok = trySend(payload);
     if (!ok) savePending(payload);
+    
+    // Always log to console for debugging (even if sent successfully)
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('[Analytics] REPORT SUBMITTED');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('Game ID:', payload.gameId);
+    console.log('Session:', payload.name);
+    console.log('Total XP:', payload.xpEarnedTotal);
+    console.log('Levels Completed:', payload.diagnostics.levels.length);
+    console.log('Raw Metrics:', payload.rawData);
+    console.log('Full Payload:', payload);
+    console.log('═══════════════════════════════════════════════════════');
 
     // ensure pending flush is registered once
     try {

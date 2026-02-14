@@ -291,6 +291,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Track this check attempt as a task
         const totalCells = inputs.length;
         const accuracy = totalCells > 0 ? (correctCount / totalCells * 100).toFixed(1) : 0;
+        
+        console.log('[Analytics] Check attempt #' + checkAttempts, {
+            correct: correctCount,
+            incorrect: incorrectCount,
+            empty: emptyCount,
+            accuracy: accuracy + '%'
+        });
+        
         analytics.recordTask(
             currentLevelId,
             'check_attempt_' + checkAttempts,
@@ -308,6 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
         analytics.addRawMetric('incorrect_cells', incorrectCount);
         analytics.addRawMetric('empty_cells', emptyCount);
         
+        console.log('[Analytics] Metrics tracked:', analytics.getReportData().rawData);
+        
         if (allCorrect) {
             const timeTaken = Date.now() - levelStartTime;
             const baseXP = 100;
@@ -315,9 +325,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const attemptBonus = Math.max(0, 50 - (checkAttempts - 1) * 10); // Bonus for fewer attempts
             const totalXP = baseXP + timeBonus + attemptBonus;
             
+            console.log('[Analytics] Puzzle completed!', {
+                timeTaken: (timeTaken / 1000).toFixed(2) + 's',
+                baseXP: baseXP,
+                timeBonus: timeBonus,
+                attemptBonus: attemptBonus,
+                totalXP: totalXP
+            });
+            
             analytics.endLevel(currentLevelId, true, timeTaken, totalXP);
+            
+            // Log full analytics report before submission
+            console.log('[Analytics] Full Report:', analytics.getReportData());
+            
             analytics.submitReport();
-            console.log('[Analytics] Puzzle completed! XP earned:', totalXP);
             
             successOverlay.classList.remove('hidden');
         } else {
