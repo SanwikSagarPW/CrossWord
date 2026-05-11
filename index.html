@@ -835,9 +835,23 @@
             console.error('Game title image not found');
         });
 
-        // Play button - redirects to game
+        // Play button - load game.html into current page for a unified build
         playBtn.addEventListener('click', function() {
-            window.location.href = 'game.html';
+            fetch('game.html')
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to load game.html: ' + response.status);
+                    return response.text();
+                })
+                .then(html => {
+                    document.open();
+                    document.write(html);
+                    document.close();
+                })
+                .catch(err => {
+                    console.error(err);
+                    // fallback to full navigation if fetch fails
+                    window.location.href = 'game.html';
+                });
         });
 
         // How to Play button
