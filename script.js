@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const ENABLE_DEV_COMPLETE_SHORTCUT = false;
+    const CROSSWORD_MAX_TOTAL_XP = 200;
+
     // DOM Elements
     const gridElement = document.getElementById('crossword-grid');
     const acrossCluesElement = document.getElementById('across-clues');
@@ -18,11 +21,141 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastFocusedCell = { row: -1, col: -1 };
 
     // Analytics Setup
-    const analytics = new AnalyticsManager();
-    analytics.initialize('crossword_puzzle', 'session_' + Date.now());
+    const analytics = AnalyticsManager.getInstance();
+    let analyticsRunId = '';
     let levelStartTime = 0;
-    let currentLevelId = null;
     let checkAttempts = 0;
+    let crosswordLevels = [];
+    const submittedCrosswordLevels = new Set();
+
+    function createRunId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        return `crossword_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function postAnalyticsDebug(event, detail = {}) {
+        try {
+            window.parent.postMessage({
+                __analyticsDebug: true,
+                game: 'CrossWord',
+                event,
+                detail,
+                at: new Date().toISOString()
+            }, '*');
+        } catch (_error) {
+            // Debug-only for local harness visibility.
+        }
+    }
+
+    function getAnswerLevelXp(levelNumber, totalLevels) {
+        const baseXp = Math.floor(CROSSWORD_MAX_TOTAL_XP / totalLevels);
+        const extraXpLevels = CROSSWORD_MAX_TOTAL_XP % totalLevels;
+        return baseXp + (levelNumber <= extraXpLevels ? 1 : 0);
+    }
+
+    function buildCrosswordLevels(clues) {
+        const allClues = [...clues.across, ...clues.down];
+        return allClues.map((clue, index) => ({
+            clue,
+            levelNumber: index + 1,
+            xp: getAnswerLevelXp(index + 1, allClues.length)
+        }));
+    }
+
+    function isClueSolved(clue) {
+        const expectedAnswer = clue.answer.toUpperCase();
+        for (let i = 0; i < expectedAnswer.length; i++) {
+            const row = clue.direction === 'across' ? clue.row : clue.row + i;
+            const col = clue.direction === 'across' ? clue.col + i : clue.col;
+            const input = document.querySelector(`.grid-cell[data-row="${row}"][data-col="${col}"] input`);
+            if (!input || input.value.toUpperCase() !== expectedAnswer[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function startAnalyticsLevel(metadata) {
+        analyticsRunId = createRunId();
+        submittedCrosswordLevels.clear();
+        checkAttempts = 0;
+        analytics.initialize('CrossWord', analyticsRunId);
+        crosswordLevels.forEach(({ clue, levelNumber, xp }) => {
+            analytics.startLevel(levelNumber, { levelNumber });
+            analytics.addRawMetric(`level_${levelNumber}_answer`, clue.answer.toUpperCase());
+            analytics.addRawMetric(`level_${levelNumber}_clue`, clue.clue);
+            analytics.addRawMetric(`level_${levelNumber}_xp`, String(xp));
+        });
+        analytics.addRawMetric('puzzle_title', metadata.title);
+        analytics.addRawMetric('puzzle_author', metadata.author || 'unknown');
+        analytics.addRawMetric('answer_count', String(crosswordLevels.length));
+        analytics.addRawMetric('max_total_xp', String(CROSSWORD_MAX_TOTAL_XP));
+        levelStartTime = Date.now();
+        console.log('[Analytics] Answer levels started:', { count: crosswordLevels.length, runId: analyticsRunId });
+        postAnalyticsDebug('levels_started', { count: crosswordLevels.length, runId: analyticsRunId, title: metadata.title });
+    }
+
+    function submitAnswerLevel(levelInfo, metrics = {}) {
+        const { clue, levelNumber, xp } = levelInfo;
+        if (submittedCrosswordLevels.has(levelNumber)) {
+            postAnalyticsDebug('submit_skipped_duplicate', { level: levelNumber, runId: analyticsRunId });
+            return null;
+        }
+
+        Object.entries(metrics).forEach(([key, value]) => {
+            analytics.addRawMetric(key, String(value));
+        });
+        const timeTaken = Date.now() - levelStartTime;
+        analytics.endLevel(levelNumber, true, timeTaken, xp);
+        analytics.recordTask(
+            levelNumber,
+            `answer_${levelNumber}`,
+            clue.clue,
+            clue.answer.toUpperCase(),
+            clue.answer.toUpperCase(),
+            timeTaken,
+            xp
+        );
+
+        const payload = analytics.submitLevel(levelNumber, { runId: analyticsRunId });
+        if (payload && payload.success === false) {
+            console.error('[Analytics] Level submit rejected:', payload.errors);
+            postAnalyticsDebug('submit_rejected', { level: levelNumber, runId: analyticsRunId, errors: payload.errors });
+            return payload;
+        }
+
+        submittedCrosswordLevels.add(levelNumber);
+        try {
+            window.parent.postMessage(payload, '*');
+        } catch (_error) {
+            // Bridge already attempted delivery; this supports the local harness.
+        }
+        console.log('[Analytics] Answer level submitted:', { level: levelNumber, runId: analyticsRunId, xp, answer: clue.answer });
+        postAnalyticsDebug('submit_success', { level: levelNumber, runId: analyticsRunId, xpEarned: xp, answer: clue.answer });
+        return payload;
+    }
+
+    function submitCompletedAnswers(metrics = {}) {
+        let submittedCount = 0;
+        crosswordLevels.forEach(levelInfo => {
+            if (!submittedCrosswordLevels.has(levelInfo.levelNumber) && isClueSolved(levelInfo.clue)) {
+                submitAnswerLevel(levelInfo, metrics);
+                submittedCount++;
+            }
+        });
+
+        return submittedCount;
+    }
+
+    function getSubmittedXpTotal() {
+        return crosswordLevels.reduce((total, levelInfo) => {
+            return total + (submittedCrosswordLevels.has(levelInfo.levelNumber) ? levelInfo.xp : 0);
+        }, 0);
+    }
 
     // --- GAME FLOW & INITIALIZATION ---
 
@@ -30,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('puzzle.json');
             currentPuzzleData = await response.json();
+            crosswordLevels = buildCrosswordLevels(currentPuzzleData.clues);
             initializeGame();
         } catch(error) {
             console.error("Failed to start game:", error);
@@ -59,11 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderClues(clues.across, acrossCluesElement, 'across');
             renderClues(clues.down, downCluesElement, 'down');
 
-            // Start analytics tracking for this level
-            currentLevelId = 'level_' + metadata.title.toLowerCase().replace(/\s+/g, '_');
-            analytics.startLevel(currentLevelId);
-            levelStartTime = Date.now();
-            console.log('[Analytics] Level started:', currentLevelId);
+            // Start analytics tracking for this puzzle as level 1.
+            startAnalyticsLevel(metadata);
         } catch (error) {
             console.error("CRITICAL ERROR building puzzle:", error);
             alert("A critical error occurred while building the puzzle.");
@@ -299,47 +430,23 @@ document.addEventListener('DOMContentLoaded', () => {
             accuracy: accuracy + '%'
         });
         
-        analytics.recordTask(
-            currentLevelId,
-            'check_attempt_' + checkAttempts,
-            `Check Puzzle Attempt #${checkAttempts}`,
-            'all_correct',
-            allCorrect ? 'all_correct' : 'has_errors',
-            Date.now() - levelStartTime,
-            allCorrect ? 50 : 10
-        );
-        
-        // Add metrics
-        analytics.addRawMetric('check_attempts', checkAttempts);
-        analytics.addRawMetric('accuracy_percent', accuracy);
-        analytics.addRawMetric('correct_cells', correctCount);
-        analytics.addRawMetric('incorrect_cells', incorrectCount);
-        analytics.addRawMetric('empty_cells', emptyCount);
-        
-        console.log('[Analytics] Metrics tracked:', analytics.getReportData().rawData);
+        const submitMetrics = {
+            check_attempts: checkAttempts,
+            accuracy_percent: accuracy,
+            correct_cells: correctCount,
+            incorrect_cells: incorrectCount,
+            empty_cells: emptyCount
+        };
+        const newlySubmittedAnswers = submitCompletedAnswers(submitMetrics);
+        console.log('[Analytics] Newly completed answers submitted:', newlySubmittedAnswers);
         
         if (allCorrect) {
-            const timeTaken = Date.now() - levelStartTime;
-            const baseXP = 100;
-            const timeBonus = Math.max(0, 50 - Math.floor(timeTaken / 10000)); // Bonus for speed
-            const attemptBonus = Math.max(0, 50 - (checkAttempts - 1) * 10); // Bonus for fewer attempts
-            const totalXP = baseXP + timeBonus + attemptBonus;
+            const totalXP = getSubmittedXpTotal();
             
             console.log('[Analytics] Puzzle completed!', {
-                timeTaken: (timeTaken / 1000).toFixed(2) + 's',
-                baseXP: baseXP,
-                timeBonus: timeBonus,
-                attemptBonus: attemptBonus,
-                totalXP: totalXP
+                totalXP: totalXP,
+                maxTotalXP: CROSSWORD_MAX_TOTAL_XP
             });
-            
-            analytics.endLevel(currentLevelId, true, timeTaken, totalXP);
-            
-            // Log full analytics report before submission
-            console.log('[Analytics] Full Report:', analytics.getReportData());
-            
-            analytics.submitReport();
-            
             successOverlay.classList.remove('hidden');
         } else {
             alert('Not quite right! The incorrect cells are marked in red.');
@@ -380,17 +487,57 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     checkButton.addEventListener('click', checkPuzzle);
+
+    function completeCurrentPuzzleForTest() {
+        if (!ENABLE_DEV_COMPLETE_SHORTCUT) {
+            console.log('DEV: Auto-complete ignored because debug shortcut is disabled.');
+            return;
+        }
+
+        const inputs = document.querySelectorAll('.cell-input');
+        if (!inputs.length) {
+            console.log('DEV: Auto-complete ignored because puzzle inputs are not ready.');
+            return;
+        }
+
+        inputs.forEach(input => {
+            input.value = input.dataset.answer || '';
+            input.readOnly = false;
+        });
+        console.log('DEV: Auto-completing crossword puzzle...');
+        checkPuzzle();
+    }
+
+    window.__completeLevelForTest = completeCurrentPuzzleForTest;
+
+    function handleDevCompleteKey(event) {
+        if ((event.key && event.key.toLowerCase() === 'c') || event.code === 'KeyC') {
+            if (event.__crosswordDevCompleteHandled) {
+                return;
+            }
+            event.__crosswordDevCompleteHandled = true;
+            event.preventDefault();
+            completeCurrentPuzzleForTest();
+        }
+    }
+
+    window.addEventListener('keydown', handleDevCompleteKey, true);
+    document.addEventListener('keydown', handleDevCompleteKey, true);
+
+    window.addEventListener('message', (event) => {
+        const data = event.data || {};
+        if (data.type === 'DEV_COMPLETE_LEVEL') {
+            completeCurrentPuzzleForTest();
+        }
+    });
     
     // Track incomplete sessions when user leaves
     window.addEventListener('beforeunload', () => {
-        if (currentLevelId && levelStartTime > 0) {
-            const level = analytics._getLevelById(currentLevelId);
-            if (level && !level.successful) {
-                const timeTaken = Date.now() - levelStartTime;
-                analytics.endLevel(currentLevelId, false, timeTaken, 0);
-                analytics.submitReport();
-                console.log('[Analytics] Session ended (incomplete)');
-            }
+        if (levelStartTime > 0 && submittedCrosswordLevels.size < crosswordLevels.length) {
+            postAnalyticsDebug('session_ended_incomplete', {
+                completedAnswers: submittedCrosswordLevels.size,
+                totalAnswers: crosswordLevels.length
+            });
         }
     });
     
