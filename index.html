@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crossword Puzzle Game</title>
+    <title>Crossword Home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Chewy&display=swap" rel="stylesheet">
     <style>
         :root {
-            --background-color: #121212;
-            --card-background: #1d1d1d;
-            --text-color: #e0e0e0;
-            --accent-color: #03dac6;
-            --button-hover: #02b8a8;
-            --overlay-bg: rgba(0, 0, 0, 0.85);
+            --bg: #f1f3f6;
+            --ink: #121212;
+            --card: #ffffff;
+            --mint: #4b9ee8;
+            --mint-deep: #2869b3;
+            --ribbon: #f27e45;
+            --frame-radius: 16px;
+            --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.12);
         }
 
         * {
@@ -23,864 +25,920 @@
             padding: 0;
         }
 
-        body {
-            font-family: 'Roboto Mono', monospace;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Background Animation */
-        .bg-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
+        html, body {
             width: 100%;
             height: 100%;
-            z-index: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 20% 14%, rgba(68, 205, 166, 0.16), transparent 35%),
+                radial-gradient(circle at 85% 86%, rgba(255, 92, 161, 0.15), transparent 32%),
+                var(--bg);
+            display: grid;
+            place-items: center;
+            padding: clamp(8px, 2vh, 20px);
+            padding-bottom: max(clamp(8px, 2vh, 20px), env(safe-area-inset-bottom));
+            font-family: 'Baloo 2', cursive;
+            color: var(--ink);
+            overflow: auto;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .shell {
+            width: min(94vw, 520px);
+            max-width: 520px;
+            min-width: 280px;
+            height: min(96dvh, calc(100vw * 1.9), 980px);
+            min-height: 0;
+            background: #f7f8fa;
+            border: 3px solid #262626;
+            border-radius: 14px;
+            padding: clamp(8px, 1.8vh, 14px);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .card {
+            border: 2px solid #2f2f2f;
+            border-radius: var(--frame-radius);
+            background: var(--card);
             overflow: hidden;
-            pointer-events: none;
-        }
-
-        .word-container {
-            position: absolute;
-            display: flex;
-            gap: 2px;
-        }
-
-        .word-container.horizontal {
-            flex-direction: row;
-        }
-
-        .word-container.vertical {
-            flex-direction: column;
-        }
-
-        .letter-box {
-            width: 35px;
-            height: 35px;
-            border: 1px solid rgba(68, 68, 68, 0.3);
-            background-color: rgba(42, 42, 42, 0.225);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Roboto Mono', monospace;
-            font-weight: bold;
-            color: rgba(150, 150, 150, 0.45);
-            font-size: 1.1em;
-            opacity: 0;
-            animation: letterAppear 0.375s ease-in forwards;
-        }
-
-        @keyframes letterAppear {
-            0% {
-                opacity: 0;
-                transform: scale(0.5);
-            }
-            100% {
-                opacity: 0.75;
-                transform: scale(1);
-            }
-        }
-
-        .word-container.fade-out .letter-box {
-            animation: letterDisappear 0.375s ease-out forwards;
-        }
-
-        @keyframes letterDisappear {
-            0% {
-                opacity: 0.75;
-                transform: scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: scale(0.5);
-            }
-        }
-
-        .main-container {
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-            animation: fadeIn 0.8s ease-in;
             position: relative;
-            z-index: 1;
+            height: 100%;
+            display: grid;
+            grid-template-rows: minmax(0, 1.2fr) auto minmax(0, 1fr) auto;
+            padding: clamp(10px, 2vh, 16px) clamp(10px, 2vh, 16px) clamp(10px, 2vh, 14px);
+            gap: clamp(8px, 1.6vh, 12px);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .image-slot {
+            position: relative;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
         }
 
-        .title-container {
-            margin-bottom: 50px;
-            padding: 20px;
+        .title-slot {
+            min-height: 0;
+            padding: 8px;
         }
 
-        .game-title-img {
+        .graphics-slot {
+            min-height: 0;
+            padding: clamp(8px, 1.6vh, 14px);
+        }
+
+        .slot-image {
+            display: none;
+            position: absolute;
+            inset: 0;
             width: 100%;
-            max-width: 400px;
-            height: auto;
-            margin: 0 auto;
-            display: block;
-            filter: drop-shadow(0 4px 12px rgba(3, 218, 198, 0.3));
+            height: 100%;
+            object-fit: contain;
         }
 
-        .game-title-text {
+        .slot-image.loaded {
+            display: block;
+        }
+
+        .slot-placeholder {
+            text-align: center;
+            color: #58667a;
+            line-height: 1.25;
+            padding: 10px;
+        }
+
+        .slot-placeholder strong {
+            display: block;
+            font-size: clamp(0.9rem, 2.2vh, 1.1rem);
+            letter-spacing: 0.4px;
+            color: #2d3b4f;
+            margin-bottom: 5px;
+        }
+
+        .slot-placeholder span {
+            display: block;
+            font-size: clamp(0.72rem, 1.8vh, 0.84rem);
+        }
+
+        .slot-placeholder.hidden {
+            display: none;
+        }
+        .ribbon {
+            width: fit-content;
+            min-width: min(44vw, 176px);
+            max-width: 100%;
+            margin: 0 auto;
+            padding: clamp(6px, 1.1vh, 8px) clamp(10px, 2.2vw, 16px);
+            background: var(--ribbon);
+            color: #121212;
+            text-transform: uppercase;
+            letter-spacing: 1.05px;
+            font-weight: 800;
+            text-shadow: 0.35px 0.35px 0 #181818;
+            font-size: clamp(0.96rem, 2.55vh, 1.2rem);
+            text-align: center;
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-height: 0;
+            position: relative;
+            transform: rotate(-1.2deg);
+            box-shadow: 0 2px 0 var(--mint-deep);
+            border-radius: 1px;
+            clip-path: polygon(
+                3% 18%, 8% 10%, 18% 12%, 30% 9%, 44% 11%, 58% 10%, 72% 11%, 84% 9%, 93% 11%, 97% 17%,
+                98% 30%, 97% 50%, 98% 71%, 96% 84%,
+                91% 89%, 81% 87%, 68% 90%, 54% 88%, 40% 90%, 27% 88%, 15% 90%, 7% 86%,
+                3% 76%, 4% 62%, 2.5% 49%, 4% 35%, 2.5% 24%
+            );
+        }
+
+        .ribbon::before,
+        .ribbon::after {
             display: none;
         }
 
-        .buttons-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            padding: 0 20px;
+        .actions {
+            display: grid;
+            gap: clamp(8px, 1.4vh, 11px);
+            padding: 0 6px;
+            flex: 0 0 auto;
         }
 
         .btn {
-            padding: 18px 40px;
-            font-size: 1.2em;
-            font-family: 'Roboto Mono', monospace;
-            font-weight: bold;
-            text-transform: uppercase;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 2px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .btn:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-
-        .btn span {
-            position: relative;
-            z-index: 1;
-        }
-
-        .play-btn {
-            background-color: var(--accent-color);
-            color: var(--background-color);
-            box-shadow: 0 4px 15px rgba(3, 218, 198, 0.4);
-        }
-
-        .play-btn:hover {
-            background-color: var(--button-hover);
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(3, 218, 198, 0.6);
-        }
-
-        .play-btn:active {
-            transform: translateY(-1px);
-        }
-
-        .how-to-btn {
-            background-color: transparent;
-            color: var(--accent-color);
-            border: 2px solid var(--accent-color);
-        }
-
-        .how-to-btn:hover {
-            background-color: var(--accent-color);
-            color: var(--background-color);
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(3, 218, 198, 0.4);
-        }
-
-        /* Popup Overlay */
-        .popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 20px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .popup-overlay.active {
-            display: flex;
-        }
-
-        .popup-content {
-            background-color: transparent;
+            height: clamp(48px, 6.5vh, 64px);
             border-radius: 12px;
-            padding: 0;
-            max-width: 800px;
+            border: 2px solid #232323;
+            font-family: 'Baloo 2', cursive;
+            font-size: clamp(1.2rem, 3.1vh, 1.95rem);
+            letter-spacing: 0.6px;
+            font-weight: 800;
+            text-shadow: 0.4px 0.4px 0 #1a1a1a;
+            cursor: pointer;
+            transition: transform 0.15s ease, filter 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             width: 100%;
-            max-height: 90vh;
-            overflow: hidden;
-            position: relative;
-            animation: slideUp 0.4s ease;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:focus-visible {
+            outline: 3px solid var(--mint);
+            outline-offset: 3px;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-play {
+            background: var(--mint);
+            color: #151515;
+            box-shadow: 0 4px 0 var(--mint-deep);
+        }
+
+        .btn-play:hover,
+        .btn-help:hover {
+            filter: brightness(1.03);
+        }
+
+        .play-icon {
+            width: clamp(18px, 2.6vh, 24px);
+            height: clamp(18px, 2.6vh, 24px);
+            border-radius: 50%;
+            background: #f8f8f8;
+            border: 2px solid #222;
+            display: grid;
+            place-items: center;
+            font-size: clamp(9px, 1.25vh, 12px);
+            line-height: 1;
+            padding-left: 2px;
+            font-weight: 800;
+            text-shadow: 0.4px 0.4px 0 #1a1a1a;
+            flex: 0 0 auto;
+        }
+
+        .btn-help {
+            background: #ffffff;
+            color: #1c1c1c;
+            box-shadow: 0 4px 0 #bfc7d1;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(12, 17, 24, 0.72);
+            backdrop-filter: blur(2px);
+            display: none;
+            place-items: center;
+            padding: 12px;
+            z-index: 20;
+        }
+
+        .modal.active {
+            display: grid;
+        }
+
+        .guide-panel {
+            width: min(92vw, 348px);
+            height: min(94dvh, 716px);
+            background: #ffffff;
+            border: 3px solid #242424;
+            border-radius: 22px;
+            box-shadow: var(--shadow-soft);
             display: flex;
             flex-direction: column;
-            align-items: center;
+            overflow: hidden;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .close-btn {
-            display: none;
-        }
-
-        /* How to Play Content Styles */
-        .how-to-play-content {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 700px;
-            box-shadow: 0 10px 40px rgba(3, 218, 198, 0.2);
-            border: 2px solid var(--accent-color);
-        }
-
-        .how-to-title {
-            font-size: 2.5em;
-            text-align: center;
-            margin-bottom: 40px;
-            color: var(--text-color);
-            font-weight: 700;
-            letter-spacing: 3px;
-        }
-
-        .title-letter {
-            display: inline-block;
-            border: 3px solid var(--accent-color);
-            padding: 5px 15px;
-            margin: 0 3px;
-            background-color: rgba(3, 218, 198, 0.1);
-            border-radius: 5px;
-            color: var(--accent-color);
-        }
-
-        .title-letter sub {
-            font-size: 0.5em;
-            color: var(--accent-color);
-            vertical-align: sub;
-        }
-
-        .instruction-item {
+        .guide-header {
+            flex: 0 0 auto;
             display: flex;
-            align-items: flex-start;
-            margin-bottom: 35px;
-            padding: 20px;
-            background-color: rgba(3, 218, 198, 0.05);
-            border-radius: 12px;
-            border-left: 4px solid var(--accent-color);
+            align-items: center;
+            gap: 10px;
+            padding: 14px 13px 7px;
         }
 
-        .instruction-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: var(--accent-color);
-            background-color: rgba(3, 218, 198, 0.2);
-            width: 50px;
-            height: 50px;
+        .guide-back {
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 20px;
-            flex-shrink: 0;
-            border: 2px solid var(--accent-color);
-        }
-
-        .instruction-text {
-            flex: 1;
-            color: var(--text-color);
-            font-size: 1.1em;
-            line-height: 1.6;
-        }
-
-        .instruction-text strong {
-            color: var(--accent-color);
-        }
-
-        .instruction-visual {
-            margin-top: 15px;
-            display: flex;
-            justify-content: center;
-            width: 100%;
-        }
-
-        .mini-grid {
+            border: 2px solid #232323;
+            background: #ffffff;
+            color: #161616;
+            font-size: 1.5rem;
+            font-family: 'Baloo 2', cursive;
+            font-weight: 800;
+            cursor: pointer;
+            line-height: 1;
             display: grid;
-            grid-template-columns: repeat(4, 50px);
-            grid-template-rows: repeat(3, 50px);
-            gap: 3px;
-            margin: 10px 0;
+            place-items: center;
+            padding-bottom: 2px;
         }
 
-        .mini-cell {
-            width: 50px;
-            height: 50px;
-            border: 2px solid rgba(68, 68, 68, 0.5);
-            background-color: rgba(42, 42, 42, 0.3);
+        .guide-title-wrap {
+            flex: 1;
+            text-align: center;
+            margin-right: 34px;
+        }
+
+        .guide-title {
+            font-family: 'Chewy', cursive;
+            font-size: clamp(1.8rem, 3.9vh, 2.36rem);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            color: #121212;
+            line-height: 1;
+        }
+
+        .guide-underline {
+            width: 126px;
+            height: 8px;
+            margin: 4px auto 0;
+            border-radius: 999px;
+            background: #3fd0df;
+            clip-path: polygon(0 62%, 10% 44%, 21% 65%, 34% 42%, 47% 62%, 61% 44%, 74% 64%, 87% 44%, 100% 60%, 100% 100%, 0 100%);
+            transition: background 0.2s ease;
+        }
+
+        .guide-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            padding: 8px 12px 10px;
+        }
+
+        .guide-screen {
+            display: none;
+        }
+
+        .guide-screen.active {
+            display: block;
+        }
+
+        .settings-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .setting-row {
+            height: 54px;
+            border: 2px solid #252525;
+            border-radius: 13px;
+            background: #ffffff;
+            padding: 0 12px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: var(--text-color);
-            border-radius: 4px;
+            justify-content: space-between;
+            font-size: clamp(1.02rem, 2.2vh, 1.12rem);
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #131313;
         }
 
-        .mini-cell.filled {
-            background-color: rgba(3, 218, 198, 0.15);
-            border-color: var(--accent-color);
-            color: var(--accent-color);
+        .setting-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .check-demo-btn {
-            padding: 15px 40px;
-            font-size: 1.1em;
-            font-family: 'Roboto Mono', monospace;
-            font-weight: bold;
-            background-color: var(--accent-color);
-            color: var(--background-color);
-            border: none;
-            border-radius: 8px;
-            cursor: default;
-            letter-spacing: 2px;
-            box-shadow: 0 4px 15px rgba(3, 218, 198, 0.4);
+        .setting-icon {
+            font-size: 1.2rem;
+            line-height: 1;
         }
 
-        .back-btn {
-            margin-top: 20px;
-            padding: 15px 50px;
-            font-size: 1.1em;
-            font-family: 'Roboto Mono', monospace;
-            font-weight: bold;
-            text-transform: uppercase;
-            background-color: var(--accent-color);
-            color: var(--background-color);
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 2px;
-        }
-
-        .back-btn:hover {
-            background-color: var(--button-hover);
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(3, 218, 198, 0.6);
-        }
-
-        .popup-title {
-            color: var(--accent-color);
-            font-size: 1.8em;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            display: none;
-        }
-
-        .instructions-text {
-            text-align: left;
-            line-height: 1.8;
-            color: var(--text-color);
-            display: none;
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 600px) {
-            .game-title-text {
-                font-size: 1.8em;
-                letter-spacing: 2px;
-            }
-
-            .btn {
-                padding: 15px 30px;
-                font-size: 1em;
-            }
-
-            .popup-content {
-                padding: 0;
-                max-width: 95%;
-            }
-
-            .popup-title {
-                font-size: 1.4em;
-            }
-
-            .back-btn {
-                padding: 12px 40px;
-                font-size: 1em;
-            }
-
-            .how-to-play-content {
-                padding: 25px 20px;
-            }
-
-            .how-to-title {
-                font-size: 1.8em;
-                margin-bottom: 30px;
-            }
-
-            .title-letter {
-                padding: 3px 10px;
-                margin: 0 2px;
-            }
-
-            .instruction-item {
-                flex-direction: column;
-                padding: 15px;
-                margin-bottom: 25px;
-            }
-
-            .instruction-number {
-                width: 40px;
-                height: 40px;
-                font-size: 1.5em;
-                margin-right: 0;
-                margin-bottom: 10px;
-            }
-
-            .instruction-text {
-                font-size: 1em;
-            }
-
-            .mini-grid {
-                grid-template-columns: repeat(4, 40px);
-                grid-template-rows: repeat(3, 40px);
-                gap: 2px;
-            }
-
-            .mini-cell {
-                width: 40px;
-                height: 40px;
-                font-size: 1em;
-            }
-
-            .check-demo-btn {
-                padding: 12px 30px;
-                font-size: 1em;
-            }
-        }
-
-        @media (max-width: 400px) {
-            .game-title-text {
-                font-size: 1.5em;
-            }
-
-            .buttons-container {
-                padding: 0 10px;
-            }
-
-            .back-btn {
-                padding: 10px 30px;
-                font-size: 0.9em;
-            }
-
-            .how-to-title {
-                font-size: 1.5em;
-            }
-
-            .mini-grid {
-                grid-template-columns: repeat(4, 35px);
-                grid-template-rows: repeat(3, 35px);
-            }
-
-            .mini-cell {
-                width: 35px;
-                height: 35px;
-                font-size: 0.9em;
-            }
-        }
-
-        /* Music Control Button */
-        .music-control {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
+        .toggle {
             width: 50px;
-            height: 50px;
-            background-color: var(--accent-color);
-            border: none;
+            height: 27px;
+            border-radius: 999px;
+            border: 2px solid #252525;
+            background: #dce4ea;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 19px;
+            height: 19px;
             border-radius: 50%;
-            cursor: pointer;
+            background: #ffffff;
+            border: 2px solid #252525;
+            transition: transform 0.2s ease;
+        }
+
+        .toggle.on {
+            background: #43cfde;
+        }
+
+        .toggle.on::after {
+            transform: translateX(20px);
+        }
+
+        .settings-mascot {
+            margin-top: 10px;
+            min-height: 84px;
+            border: 2px dashed #d6deea;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            display: grid;
+            place-items: center;
+            text-align: center;
+            color: #6a7688;
+            font-size: 0.86rem;
+            line-height: 1.2;
+            padding: 8px;
+        }
+
+        .setting-value {
+            font-size: 0.95rem;
+            letter-spacing: 0.3px;
+        }
+
+        .tutorial-card {
+            border: 3px solid #43cfde;
+            border-radius: 20px;
+            background: #ffffff;
+            padding: 11px;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
+        }
+
+        .tutorial-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid #1d1d1d;
+            border-radius: 999px;
+            padding: 4px 11px 4px 7px;
+            background: #43cfde;
+            font-weight: 800;
+            letter-spacing: 0.35px;
+            color: #121212;
+            text-transform: uppercase;
+        }
+
+        .tutorial-num {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #1d1d1d;
+            display: grid;
+            place-items: center;
+            font-size: 1.08rem;
+            background: rgba(255, 255, 255, 0.72);
+            font-weight: 800;
+        }
+
+        .tutorial-art {
+            margin: 12px 0 11px;
+            min-height: clamp(198px, 31vh, 232px);
+            border: 2px dashed #bcc8d6;
+            border-radius: 16px;
+            background: #f7fbff;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            font-size: 0.84rem;
+            color: #5f6f83;
+            padding: 12px;
+            overflow: hidden;
+        }
+
+        .tutorial-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .tutorial-art img.loaded {
+            display: block;
+        }
+
+        .tutorial-art-placeholder {
+            padding: 8px;
+        }
+
+        .tutorial-text {
+            text-align: center;
+            font-size: clamp(1.05rem, 2.8vh, 1.34rem);
+            line-height: 1.14;
+            color: #181818;
+            font-weight: 700;
+            padding: 0 8px;
+        }
+
+        .guide-footer {
+            flex: 0 0 auto;
+            padding: 6px 12px 12px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .pager {
             display: flex;
             justify-content: center;
-            align-items: center;
-            font-size: 1.5em;
-            color: var(--background-color);
-            transition: all 0.3s ease;
-            z-index: 100;
-            box-shadow: 0 4px 15px rgba(3, 218, 198, 0.4);
+            gap: 10px;
+            min-height: 14px;
         }
 
-        .music-control:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(3, 218, 198, 0.6);
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #262626;
+            background: #ffffff;
         }
 
-        .music-control.muted {
-            background-color: rgba(68, 68, 68, 0.8);
+        .dot.active {
+            background: #43cfde;
         }
+
+        .guide-next {
+            height: 56px;
+            border-radius: 13px;
+            border: 2px solid #202020;
+            font-family: 'Baloo 2', cursive;
+            font-size: clamp(2rem, 4.2vh, 2.32rem);
+            line-height: 1;
+            letter-spacing: 0.4px;
+            font-weight: 800;
+            color: #161616;
+            background: #43cfde;
+            box-shadow: 0 4px 0 #2ea8b3;
+            cursor: pointer;
+        }
+
+        .guide-next:active {
+            transform: translateY(1px);
+        }
+
+        .guide-panel.step-2 .guide-underline,
+        .guide-panel.step-2 .dot.active,
+        .guide-panel.step-2 .tutorial-tag,
+        .guide-panel.step-2 .guide-next {
+            background: #ff5c93;
+        }
+
+        .guide-panel.step-2 .tutorial-card {
+            border-color: #ff5c93;
+        }
+
+        .guide-panel.step-2 .guide-next {
+            box-shadow: 0 4px 0 #d84275;
+        }
+
+        .guide-panel.step-3 .guide-underline,
+        .guide-panel.step-3 .dot.active,
+        .guide-panel.step-3 .tutorial-tag,
+        .guide-panel.step-3 .guide-next {
+            background: #ffb02f;
+        }
+
+        .guide-panel.step-3 .tutorial-card {
+            border-color: #ffb02f;
+        }
+
+        .guide-panel.step-3 .guide-next {
+            box-shadow: 0 4px 0 #d48b16;
+        }
+
+        @media (max-height: 700px) {
+            .guide-panel {
+                height: min(95dvh, 660px);
+            }
+
+            .tutorial-art {
+                min-height: clamp(160px, 26vh, 196px);
+            }
+
+            .guide-next {
+                height: 50px;
+                font-size: clamp(1.8rem, 3.6vh, 2.06rem);
+            }
+        }
+
+        @media (orientation: landscape) {
+            .guide-panel {
+                width: min(96vw, 540px);
+                height: min(92dvh, 430px);
+            }
+
+            .guide-body {
+                padding: 6px 10px 8px;
+            }
+
+            .settings-list {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            .setting-row {
+                height: 46px;
+                font-size: 0.96rem;
+            }
+
+            .settings-mascot {
+                grid-column: 1 / 3;
+                min-height: 56px;
+                margin-top: 2px;
+            }
+
+            .tutorial-art {
+                min-height: 128px;
+            }
+
+            .tutorial-text {
+                font-size: 1.02rem;
+            }
+
+            .guide-next {
+                height: 46px;
+                font-size: 1.8rem;
+            }
+        }
+
     </style>
 </head>
 <body>
-    <!-- Background Animation -->
-    <div class="bg-animation" id="bgAnimation"></div>
-
-    <div class="main-container">
-        <div class="title-container">
-            <img src="game_title.png" alt="Crossword Game" class="game-title-img" id="gameTitleImg">
-            <h1 class="game-title-text" id="gameTitleText">Crossword</h1>
-        </div>
-
-        <div class="buttons-container">
-            <button class="btn play-btn" id="playBtn">
-                <span>Play Game</span>
-            </button>
-            <button class="btn how-to-btn" id="howToBtn">
-                <span>How to Play</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- How to Play Popup -->
-    <div class="popup-overlay" id="howToPopup">
-        <div class="popup-content">
-            <div class="how-to-play-content">
-                <h2 class="how-to-title"><span class="title-letter">H</span>ow <span class="title-letter">T</span>o <span class="title-letter">P<sub>La</sub></span>y</h2>
-                
-                <div class="instruction-item">
-                    <div class="instruction-number">1</div>
-                    <div class="instruction-text">
-                        <strong>Type in the chemistry themed crossword puzzle</strong>
-                    </div>
-                    <div class="instruction-visual">
-                        <div class="mini-grid">
-                            <div class="mini-cell"></div>
-                            <div class="mini-cell filled">A</div>
-                            <div class="mini-cell"></div>
-                            <div class="mini-cell"></div>
-                            <div class="mini-cell filled">M</div>
-                            <div class="mini-cell filled">O</div>
-                            <div class="mini-cell filled">L</div>
-                            <div class="mini-cell filled">E</div>
-                            <div class="mini-cell"></div>
-                            <div class="mini-cell filled">M</div>
-                            <div class="mini-cell"></div>
-                        </div>
-                    </div>
+    <div class="shell">
+        <main class="card" role="main">
+            <section class="image-slot title-slot" id="titleArtPlaceholder">
+                <img id="titleImage" class="slot-image" src="home-title.png" alt="Home title art">
+                <div id="titlePlaceholderText" class="slot-placeholder">
+                    <strong>TITLE IMAGE PLACEHOLDER</strong>
+                    <span>Add home-title.png in this folder</span>
                 </div>
+            </section>
 
-                <div class="instruction-item">
-                    <div class="instruction-number">2</div>
-                    <div class="instruction-text">
-                        <strong>Click 'CHECK' to verify your answer</strong>
-                    </div>
-                    <div class="instruction-visual">
-                        <button class="check-demo-btn">CHECK</button>
-                    </div>
+            <div class="ribbon" id="topicRibbon">TOPIC</div>
+
+            <section class="image-slot graphics-slot" id="graphicsArtPlaceholder">
+                <img id="graphicsImage" class="slot-image" src="home-graphics.png" alt="Home graphics art">
+                <div id="graphicsPlaceholderText" class="slot-placeholder">
+                    <strong>GRAPHICS IMAGE PLACEHOLDER</strong>
+                    <span>Add home-graphics.png in this folder</span>
                 </div>
+            </section>
+
+            <div class="actions">
+                <button class="btn btn-play" id="playBtn" type="button">
+                    <span class="play-icon">?</span>
+                    <span>PLAY NOW</span>
+                </button>
+                <button class="btn btn-help" id="howToBtn" type="button">HOW TO PLAY</button>
             </div>
-            <button class="back-btn" id="backBtn">BACK</button>
-        </div>
+        </main>
     </div>
 
-    <!-- Music Control Button -->
-    <button class="music-control" id="musicControl" title="Toggle Music">
-        🔊
-    </button>
+    <div class="modal" id="howToPopup" aria-hidden="true">
+        <section class="guide-panel" id="guidePanel" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+            <header class="guide-header">
+                <button id="guideBackBtn" class="guide-back" type="button" aria-label="Back">&#x2039;</button>
+                <div class="guide-title-wrap">
+                    <h2 class="guide-title" id="guideTitle">SETTINGS</h2>
+                    <div class="guide-underline" id="guideUnderline"></div>
+                </div>
+            </header>
 
-    <!-- Background Music -->
-    <audio id="bgMusic" loop>
-        <source src="music.mp3" type="audio/mpeg">
-    </audio>
+            <div class="guide-body">
+                <section class="guide-screen active" id="settingsScreen" aria-label="Settings">
+                    <div class="settings-list">
+                        <div class="setting-row">
+                            <div class="setting-label"><span class="setting-icon">&#128266;</span><span>SOUND</span></div>
+                            <button class="toggle on" id="soundToggle" type="button" aria-label="Toggle sound"></button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label"><span class="setting-icon">&#127925;</span><span>MUSIC</span></div>
+                            <button class="toggle on" id="musicToggle" type="button" aria-label="Toggle music"></button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label"><span class="setting-icon">&#128241;</span><span>VIBRATION</span></div>
+                            <button class="toggle on" id="vibrationToggle" type="button" aria-label="Toggle vibration"></button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label"><span class="setting-icon">&#127760;</span><span>LANGUAGE</span></div>
+                            <div class="setting-value">ENGLISH &#8250;</div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label"><span class="setting-icon">&#8635;</span><span>RESTART PUZZLE</span></div>
+                            <div class="setting-value">&#8250;</div>
+                        </div>
+                        <div class="settings-mascot">SETTINGS GRAPHIC PLACEHOLDER<br>Add settings-graphic.png (optional)</div>
+                    </div>
+                </section>
+
+                <section class="guide-screen" id="howToScreen" aria-label="How to play">
+                    <article class="tutorial-card">
+                        <div class="tutorial-tag" id="tutorialTag">
+                            <span class="tutorial-num" id="tutorialNum">1</span>
+                            <span id="tutorialTagText">READ THE CLUE</span>
+                        </div>
+                        <div class="tutorial-art" id="tutorialArt">
+                            <img id="tutorialArtImage" alt="How to play step graphic">
+                            <div class="tutorial-art-placeholder" id="tutorialArtPlaceholder">HOW TO PLAY ART PLACEHOLDER<br>Add howto-step1.png, howto-step2.png, howto-step3.png</div>
+                        </div>
+                        <p class="tutorial-text" id="tutorialText">Read the clue carefully before picking letters.</p>
+                    </article>
+                </section>
+            </div>
+
+            <footer class="guide-footer">
+                <div class="pager" id="tutorialDots" aria-hidden="true">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+                <button class="guide-next" id="guideNextBtn" type="button">NEXT</button>
+            </footer>
+        </section>
+    </div>
 
     <script>
         const playBtn = document.getElementById('playBtn');
         const howToBtn = document.getElementById('howToBtn');
         const howToPopup = document.getElementById('howToPopup');
-        const backBtn = document.getElementById('backBtn');
-        const gameTitleImg = document.getElementById('gameTitleImg');
-        const gameTitleText = document.getElementById('gameTitleText');
-        const bgAnimation = document.getElementById('bgAnimation');
-        const bgMusic = document.getElementById('bgMusic');
-        const musicControl = document.getElementById('musicControl');
+        const topicRibbon = document.getElementById('topicRibbon');
+        const guidePanel = document.getElementById('guidePanel');
+        const guideBackBtn = document.getElementById('guideBackBtn');
+        const guideNextBtn = document.getElementById('guideNextBtn');
+        const guideTitle = document.getElementById('guideTitle');
+        const settingsScreen = document.getElementById('settingsScreen');
+        const howToScreen = document.getElementById('howToScreen');
+        const tutorialDots = Array.from(document.querySelectorAll('#tutorialDots .dot'));
+        const tutorialNum = document.getElementById('tutorialNum');
+        const tutorialTagText = document.getElementById('tutorialTagText');
+        const tutorialText = document.getElementById('tutorialText');
+        const tutorialArtImage = document.getElementById('tutorialArtImage');
+        const tutorialArtPlaceholder = document.getElementById('tutorialArtPlaceholder');
+        const soundToggle = document.getElementById('soundToggle');
+        const musicToggle = document.getElementById('musicToggle');
+        const vibrationToggle = document.getElementById('vibrationToggle');
 
-        // Set music volume to 50%
-        bgMusic.volume = 0.5;
+        const guideState = {
+            screen: 'settings',
+            step: 0
+        };
 
-        // Music control
-        let isMusicPlaying = false;
-
-        // Try to autoplay music immediately
-        bgMusic.play().then(() => {
-            isMusicPlaying = true;
-            musicControl.textContent = '🔊';
-            musicControl.classList.remove('muted');
-        }).catch(e => {
-            // Autoplay blocked by browser, wait for user interaction
-            console.log('Autoplay blocked, waiting for user interaction');
-            musicControl.classList.add('muted');
-            musicControl.textContent = '🔇';
-            
-            // Try to play on first user interaction
-            document.addEventListener('click', function autoplayMusic() {
-                if (!isMusicPlaying) {
-                    bgMusic.play().then(() => {
-                        isMusicPlaying = true;
-                        musicControl.textContent = '🔊';
-                        musicControl.classList.remove('muted');
-                    }).catch(e => console.log('Music play failed:', e));
-                }
-                document.removeEventListener('click', autoplayMusic);
-            }, { once: true });
-        });
-
-        musicControl.addEventListener('click', function() {
-            if (isMusicPlaying) {
-                bgMusic.pause();
-                musicControl.textContent = '🔇';
-                musicControl.classList.add('muted');
-                isMusicPlaying = false;
-            } else {
-                bgMusic.play().catch(e => console.log('Music play failed:', e));
-                musicControl.textContent = '🔊';
-                musicControl.classList.remove('muted');
-                isMusicPlaying = true;
+        const tutorialSteps = [
+            {
+                number: 1,
+                tag: 'READ THE CLUE',
+                text: 'Read the clue carefully.',
+                art: 'howto-step1.png'
+            },
+            {
+                number: 2,
+                tag: 'TAP THE GRID',
+                text: 'Tap the starting letter in the grid.',
+                art: 'howto-step2.png'
+            },
+            {
+                number: 3,
+                tag: 'CHOOSE LETTERS',
+                text: 'Use the letters below to fill the word.',
+                art: 'howto-step3.png'
             }
-        });
-
-        // Words related to play, learn, and grow
-        const words = [
-            'PLAY', 'LEARN', 'GROW', 'THINK', 'SOLVE', 'BRAIN',
-            'SMART', 'STUDY', 'FOCUS', 'TRAIN', 'SKILL', 'WISDOM',
-            'QUEST', 'DREAM', 'EVOLVE', 'CREATE', 'DISCOVER', 'EXPLORE',
-            'ACHIEVE', 'MASTER', 'PRACTICE', 'IMPROVE', 'DEVELOP', 'EXCEL',
-            'KNOWLEDGE', 'CHALLENGE', 'PROGRESS', 'SUCCESS', 'VICTORY',
-            'THRIVE', 'INSPIRE', 'IMAGINE', 'BUILD', 'UNLOCK', 'ADVANCE'
         ];
 
-        const activeWords = [];
-        const maxWords = window.innerWidth < 600 ? 8 : 15;
+        function renderTutorialArt(imagePath) {
+            tutorialArtImage.classList.remove('loaded');
+            tutorialArtPlaceholder.style.display = 'block';
+            tutorialArtPlaceholder.innerHTML = 'HOW TO PLAY ART PLACEHOLDER<br>Add ' + imagePath;
 
-        // Define exclusion zones (center of screen where buttons/title are)
-        function isInExclusionZone(x, y, width, height) {
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
-            
-            // Define exclusion zone dimensions
-            const exclusionWidth = window.innerWidth < 600 ? 350 : 550;
-            const exclusionHeight = window.innerHeight < 600 ? 400 : 500;
-            
-            const exclusionLeft = centerX - exclusionWidth / 2;
-            const exclusionRight = centerX + exclusionWidth / 2;
-            const exclusionTop = centerY - exclusionHeight / 2;
-            const exclusionBottom = centerY + exclusionHeight / 2;
-            
-            // Check if word overlaps with exclusion zone
-            return !(x + width < exclusionLeft || 
-                     x > exclusionRight || 
-                     y + height < exclusionTop || 
-                     y > exclusionBottom);
+            tutorialArtImage.onload = function () {
+                tutorialArtImage.classList.add('loaded');
+                tutorialArtPlaceholder.style.display = 'none';
+            };
+
+            tutorialArtImage.onerror = function () {
+                tutorialArtImage.classList.remove('loaded');
+                tutorialArtPlaceholder.style.display = 'block';
+            };
+
+            tutorialArtImage.src = imagePath;
         }
 
-        // Check if word overlaps with existing words
-        function overlapsWithExisting(x, y, width, height) {
-            const padding = 20; // Space between words
-            
-            for (let word of activeWords) {
-                const rect = word.getBoundingClientRect();
-                const wordX = parseFloat(word.style.left);
-                const wordY = parseFloat(word.style.top);
-                const wordWidth = rect.width;
-                const wordHeight = rect.height;
-                
-                if (!(x + width + padding < wordX || 
-                      x > wordX + wordWidth + padding || 
-                      y + height + padding < wordY || 
-                      y > wordY + wordHeight + padding)) {
-                    return true;
-                }
+        function setToggleState(button, isOn) {
+            button.classList.toggle('on', isOn);
+            button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        }
+
+        function updateGuideUi() {
+            const isSettings = guideState.screen === 'settings';
+            settingsScreen.classList.toggle('active', isSettings);
+            howToScreen.classList.toggle('active', !isSettings);
+            guideTitle.textContent = isSettings ? 'SETTINGS' : 'HOW TO PLAY';
+            guideNextBtn.textContent = isSettings ? 'NEXT' : (guideState.step === tutorialSteps.length - 1 ? 'DONE' : 'NEXT');
+            document.getElementById('tutorialDots').style.visibility = isSettings ? 'hidden' : 'visible';
+
+            if (isSettings) {
+                guidePanel.classList.remove('step-2', 'step-3');
+                return;
             }
-            return false;
-        }
 
-        function getRandomPosition(wordLength, direction) {
-            const margin = 50;
-            const boxSize = 37; // 35px + 2px gap
-            const width = direction === 'horizontal' ? wordLength * boxSize : boxSize;
-            const height = direction === 'vertical' ? wordLength * boxSize : boxSize;
-            
-            let attempts = 0;
-            const maxAttempts = 50;
-            
-            while (attempts < maxAttempts) {
-                const x = Math.random() * (window.innerWidth - width - margin * 2) + margin;
-                const y = Math.random() * (window.innerHeight - height - margin * 2) + margin;
-                
-                if (!isInExclusionZone(x, y, width, height) && 
-                    !overlapsWithExisting(x, y, width, height)) {
-                    return { x, y };
-                }
-                attempts++;
-            }
-            
-            return null; // No valid position found
-        }
+            const stepData = tutorialSteps[guideState.step];
+            tutorialNum.textContent = String(stepData.number);
+            tutorialTagText.textContent = stepData.tag;
+            tutorialText.textContent = stepData.text;
+            renderTutorialArt(stepData.art);
 
-        function createWord() {
-            if (activeWords.length >= maxWords) return;
-
-            const word = words[Math.floor(Math.random() * words.length)];
-            const direction = Math.random() > 0.5 ? 'horizontal' : 'vertical';
-            const position = getRandomPosition(word.length, direction);
-            
-            if (!position) return; // Skip if no valid position
-
-            const wordContainer = document.createElement('div');
-            wordContainer.className = `word-container ${direction}`;
-            wordContainer.style.left = position.x + 'px';
-            wordContainer.style.top = position.y + 'px';
-
-            // Create boxes for each letter with staggered animation (25% slower)
-            word.split('').forEach((letter, index) => {
-                const box = document.createElement('div');
-                box.className = 'letter-box';
-                box.textContent = letter;
-                box.style.animationDelay = (index * 0.125) + 's'; // 0.1 * 1.25
-                wordContainer.appendChild(box);
+            tutorialDots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === guideState.step);
             });
 
-            bgAnimation.appendChild(wordContainer);
-            activeWords.push(wordContainer);
-
-            // Remove word after random duration (3.75-8.75 seconds, 25% slower)
-            const lifetime = Math.random() * 5000 + 3750;
-            setTimeout(() => {
-                removeWord(wordContainer);
-            }, lifetime);
+            guidePanel.classList.toggle('step-2', guideState.step === 1);
+            guidePanel.classList.toggle('step-3', guideState.step === 2);
         }
 
-        function removeWord(wordContainer) {
-            wordContainer.classList.add('fade-out');
-            
-            setTimeout(() => {
-                if (wordContainer.parentNode) {
-                    wordContainer.remove();
-                }
-                const index = activeWords.indexOf(wordContainer);
-                if (index > -1) {
-                    activeWords.splice(index, 1);
-                }
-            }, 625); // 500 * 1.25
-        }
-
-        // Continuously create new words
-        function startWordAnimation() {
-            createWord();
-            
-            const interval = setInterval(() => {
-                if (activeWords.length < maxWords) {
-                    createWord();
-                }
-            }, 1000); // 800 * 1.25
-        }
-
-        // Start the animation
-        startWordAnimation();
-
-        // Check if game title image exists
-        gameTitleImg.addEventListener('error', function() {
-            console.error('Game title image not found');
-        });
-
-        // Play button - load game.html into current page for a unified build
-        playBtn.addEventListener('click', function() {
-            fetch(`game.html?playReload=${Date.now()}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to load game.html: ' + response.status);
-                    return response.text();
-                })
-                .then(html => {
-                    document.open();
-                    document.write(html);
-                    document.close();
-                })
-                .catch(err => {
-                    console.error(err);
-                    // fallback to full navigation if fetch fails
-                    window.location.href = 'game.html';
-                });
-        });
-
-        // How to Play button
-        howToBtn.addEventListener('click', function() {
+        function openGuide() {
+            guideState.screen = 'howto';
+            guideState.step = 0;
             howToPopup.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        });
-
-        // Close popup
-        backBtn.addEventListener('click', closePopup);
-
-        // Close popup when clicking outside
-        howToPopup.addEventListener('click', function(e) {
-            if (e.target === howToPopup) {
-                closePopup();
-            }
-        });
-
-        // Close popup with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && howToPopup.classList.contains('active')) {
-                closePopup();
-            }
-        });
-
-        function closePopup() {
-            howToPopup.classList.remove('active');
-            document.body.style.overflow = 'auto';
+            howToPopup.setAttribute('aria-hidden', 'false');
+            updateGuideUi();
         }
+
+        function closeGuide() {
+            howToPopup.classList.remove('active');
+            howToPopup.setAttribute('aria-hidden', 'true');
+        }
+
+        function parsePuzzleJson(text) {
+            return JSON.parse(text.replace(/^\uFEFF/, '').trim());
+        }
+
+        async function loadHomePuzzleData() {
+            const candidates = ['puzzle.json', 'level1.json'];
+            const cacheBust = 'ts=' + Date.now();
+
+            for (const file of candidates) {
+                try {
+                    const response = await fetch(file + '?' + cacheBust, { cache: 'no-store' });
+                    if (!response.ok) continue;
+                    const parsed = parsePuzzleJson(await response.text());
+                    if (parsed && parsed.metadata && parsed.clues) return parsed;
+                } catch (_error) {
+                    // Keep trying fallback files.
+                }
+            }
+
+            return null;
+        }
+
+        function toRibbonText(value) {
+            if (!value) return 'TOPIC';
+            return String(value).replace(/[_-]+/g, ' ').trim().toUpperCase();
+        }
+
+        function activateImage(imageId, placeholderId) {
+            const image = document.getElementById(imageId);
+            const placeholder = document.getElementById(placeholderId);
+            if (!image || !placeholder) return;
+
+            image.addEventListener('load', function () {
+                image.classList.add('loaded');
+                placeholder.classList.add('hidden');
+            });
+
+            image.addEventListener('error', function () {
+                image.classList.remove('loaded');
+                placeholder.classList.remove('hidden');
+            });
+        }
+
+        (async function initHomeData() {
+            activateImage('titleImage', 'titlePlaceholderText');
+            activateImage('graphicsImage', 'graphicsPlaceholderText');
+            const data = await loadHomePuzzleData();
+            if (data && data.metadata) {
+                topicRibbon.textContent = toRibbonText(data.metadata.title || 'TOPIC');
+            }
+        })();
+
+        playBtn.addEventListener('click', function () {
+            window.location.href = 'game.html';
+        });
+
+        howToBtn.addEventListener('click', openGuide);
+
+        guideBackBtn.addEventListener('click', function () {
+            if (guideState.screen === 'settings') {
+                closeGuide();
+                return;
+            }
+            if (guideState.step > 0) {
+                guideState.step -= 1;
+                updateGuideUi();
+                return;
+            }
+            guideState.screen = 'settings';
+            updateGuideUi();
+        });
+
+        guideNextBtn.addEventListener('click', function () {
+            if (guideState.screen === 'settings') {
+                guideState.screen = 'howto';
+                guideState.step = 0;
+                updateGuideUi();
+                return;
+            }
+            if (guideState.step < tutorialSteps.length - 1) {
+                guideState.step += 1;
+                updateGuideUi();
+                return;
+            }
+            closeGuide();
+        });
+
+        [soundToggle, musicToggle, vibrationToggle].forEach((toggleButton) => {
+            setToggleState(toggleButton, true);
+            toggleButton.addEventListener('click', function () {
+                const next = !toggleButton.classList.contains('on');
+                setToggleState(toggleButton, next);
+            });
+        });
+
+        howToPopup.addEventListener('click', function (event) {
+            if (event.target === howToPopup) {
+                closeGuide();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeGuide();
+            }
+        });
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

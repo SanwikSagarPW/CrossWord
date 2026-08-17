@@ -1,6 +1,85 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
+
+    function parsePuzzleJson(text) {
+        return JSON.parse(text.replace(/^\uFEFF/, '').trim());
+    }
+    async function loadPuzzleData(candidates) {
+        const cacheBust = 'ts=' + Date.now();
+        const loadErrors = [];
+
+        for (const file of candidates) {
+            try {
+                const response = await fetch(file + '?' + cacheBust, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const parsed = parsePuzzleJson(await response.text());
+                if (!parsed || !parsed.metadata || !parsed.clues) {
+                    throw new Error('Invalid puzzle format (missing metadata or clues).');
+                }
+
+                return parsed;
+            } catch (error) {
+                loadErrors.push(`${file}: ${error.message}`);
+            }
+        }
+
+        throw new Error('Could not load puzzle data. Tried: ' + loadErrors.join(' | '));
+    }
+
+    function getLevelPuzzleCandidates(levelNum) {
+        if (levelNum === 2) return ['puzzle-level2.json', 'level2.json'];
+        if (levelNum === 1) return ['puzzle.json', 'level1.json'];
+
+        return [
+            `puzzle-level${levelNum}.json`,
+            `level${levelNum}.json`,
+            'puzzle.json'
+        ];
+    }
+    function normalizeClues(rawClues) {
+        const across = [];
+        const down = [];
+        const seen = new Set();
+
+        const addClue = (clue, fallbackDirection) => {
+            if (!clue || clue.number == null) return;
+            const direction = String(clue.direction || fallbackDirection || 'across').toLowerCase();
+            const key = direction + '-' + clue.number;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const normalized = {
+                ...clue,
+                direction,
+                answer: String(clue.answer || '').toUpperCase(),
+                clue: String(clue.clue || clue.question || clue.text || '').trim()
+            };
+            if (!normalized.clue || !normalized.answer) return;
+            if (direction === 'down') down.push(normalized);
+            else across.push(normalized);
+        };
+
+        (rawClues.across || []).forEach((clue) => addClue(clue, 'across'));
+        (rawClues.down || []).forEach((clue) => addClue(clue, 'down'));
+
+        across.sort((a, b) => a.number - b.number);
+        down.sort((a, b) => a.number - b.number);
+        return { across, down };
+    }
+
     const ENABLE_DEV_COMPLETE_SHORTCUT = false;
     const CROSSWORD_MAX_TOTAL_XP = 200;
+
+    // ============================================
+    // ANALYTICS SETUP
+    // ============================================
+    const analytics = AnalyticsManager.getInstance();
+    let analyticsRunId = '';
+    
+    let levelStartTime = 0;
+    let checkAttempts = 0;
+    let submitAttempts = 0;
+    let crosswordLevels = [];
+    const submittedCrosswordLevels = new Set();
 
     // DOM Elements
     const gridElement = document.getElementById('crossword-grid');
@@ -8,8 +87,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const downCluesElement = document.getElementById('down-clues');
     const titleElement = document.getElementById('puzzle-title');
     const levelElement = document.getElementById('puzzle-level');
+    const progressText = document.getElementById('progress-text');
+    const backBtn = document.getElementById('back-btn');
+    const hintBtn = document.getElementById('hint-btn');
     const checkButton = document.getElementById('check-btn');
+    const submitButton = document.getElementById('submit-btn');
     const successOverlay = document.getElementById('success-overlay');
+    const timesUpOverlay = document.getElementById('times-up-overlay');
+    const incompleteOverlay = document.getElementById('incomplete-overlay');
+    const restartButton = document.getElementById('restart-btn');
+    const homeButton = document.getElementById('home-btn');
+    const incompleteOkButton = document.getElementById('incomplete-ok-btn');
+    const timerElement = document.getElementById('timer');
+    const scoreDisplayElement = document.getElementById('score-display');
     const adminPanel = document.getElementById('admin-panel');
     const gameContainer = document.querySelector('.game-container');
 
@@ -19,14 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDirection = 'across';
     let activeClueInfo = null;
     let lastFocusedCell = { row: -1, col: -1 };
-
-    // Analytics Setup
-    const analytics = AnalyticsManager.getInstance();
-    let analyticsRunId = '';
-    let levelStartTime = 0;
-    let checkAttempts = 0;
-    let crosswordLevels = [];
-    const submittedCrosswordLevels = new Set();
+    let timerInterval = null;
+    let timeRemaining = 0;
+    const GAME_DURATION = 600; // 10 minutes in seconds
 
     function createRunId() {
         if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -83,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         analyticsRunId = createRunId();
         submittedCrosswordLevels.clear();
         checkAttempts = 0;
+        submitAttempts = 0;
         analytics.initialize('CrossWord', analyticsRunId);
         crosswordLevels.forEach(({ clue, levelNumber, xp }) => {
             analytics.startLevel(levelNumber, { levelNumber });
@@ -161,30 +247,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function startGame() {
         try {
-            const response = await fetch('puzzle.json');
-            currentPuzzleData = await response.json();
+            currentPuzzleData = await loadPuzzleData(getLevelPuzzleCandidates(1));
             crosswordLevels = buildCrosswordLevels(currentPuzzleData.clues);
             initializeGame();
+            startAnalyticsLevel(currentPuzzleData.metadata);
         } catch(error) {
             console.error("Failed to start game:", error);
-            alert("Could not load the initial puzzle. Please check puzzle.json and refresh.");
+            gridElement.innerHTML = `<p style="color: var(--error-color);">Could not load puzzle. Please check puzzle.json and refresh.</p>`;
         }
     }
 
     function initializeGame() {
         lastFocusedCell = { row: -1, col: -1 };
         currentDirection = 'across';
-        checkAttempts = 0;
+        timeRemaining = GAME_DURATION;
+        
         try {
-            const { metadata, clues } = currentPuzzleData;
+            const { metadata, clues: rawClues } = currentPuzzleData;
+            const clues = normalizeClues(rawClues);
+            currentPuzzleData.clues = clues;
             const { rows, cols } = metadata.size;
-            titleElement.textContent = metadata.title;
-            levelElement.textContent = 'Level 1';
+            if(titleElement) titleElement.textContent = metadata.title;
+            if(levelElement) levelElement.textContent = 'Level 1';
             gridState = Array(rows).fill(null).map(() => Array(cols).fill(null));
             gridElement.innerHTML = '';
             acrossCluesElement.innerHTML = '';
             downCluesElement.innerHTML = '';
-            // Set CSS variables for grid dimensions
             gridElement.style.setProperty('--grid-rows', rows);
             gridElement.style.setProperty('--grid-cols', cols);
             populateGridState(clues.across);
@@ -192,26 +280,56 @@ document.addEventListener('DOMContentLoaded', () => {
             renderGrid(rows, cols);
             renderClues(clues.across, acrossCluesElement, 'across');
             renderClues(clues.down, downCluesElement, 'down');
-
-            // Start analytics tracking for this puzzle as level 1.
-            startAnalyticsLevel(metadata);
+            startTimer();
         } catch (error) {
             console.error("CRITICAL ERROR building puzzle:", error);
-            alert("A critical error occurred while building the puzzle.");
+            gridElement.innerHTML = `<p style="color: var(--error-color);">A critical error occurred while building the puzzle.</p>`;
         }
+    }
+    
+    // --- TIMER LOGIC ---
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+
+        const updateDisplay = () => {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        };
+
+        updateDisplay();
+        timerInterval = setInterval(() => {
+            if (timeRemaining > 0) {
+                timeRemaining--;
+                updateDisplay();
+            } else {
+                endGameByTimeUp();
+            }
+        }, 1000);
+    }
+
+    function endGameByTimeUp() {
+        clearInterval(timerInterval);
+        timerElement.textContent = "0:00";
+        timesUpOverlay.classList.remove('hidden');
+        document.querySelectorAll('.cell-input').forEach(input => { input.readOnly = true; });
+        checkButton.disabled = true;
+        submitButton.disabled = true;
+        
+        postAnalyticsDebug('times_up', { runId: analyticsRunId, submittedLevels: submittedCrosswordLevels.size });
+        console.log('[Analytics] Session ended before completing all answers.');
     }
 
     // --- GRID & CLUE RENDERING ---
 
     function populateGridState(clueList) {
-        clueList.forEach(clue => {
+        [...clueList].sort((a, b) => a.number - b.number).forEach(clue => {
             const answer = clue.answer.toUpperCase();
             for (let i = 0; i < answer.length; i++) {
                 const r = clue.direction === 'across' ? clue.row : clue.row + i;
                 const c = clue.direction === 'across' ? clue.col + i : clue.col;
-                if (!gridState[r][c]) {
-                    gridState[r][c] = { answer: '', words: [] };
-                }
+                if (!gridState[r][c]) gridState[r][c] = { answer: '', words: [] };
                 gridState[r][c].answer = answer[i];
                 if (!gridState[r][c].words.some(w => w.number === clue.number && w.direction === clue.direction)) {
                     gridState[r][c].words.push({ number: clue.number, direction: clue.direction });
@@ -222,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderGrid(rows, cols) {
+        gridElement.innerHTML = ''; // Clear previous grid
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 const cellData = gridState[r][c];
@@ -230,19 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.dataset.row = r;
                 cell.dataset.col = c;
                 
-                const devCoords = document.createElement('div');
-                devCoords.className = 'dev-coords';
-                devCoords.textContent = `${r},${c}`;
-                cell.appendChild(devCoords);
-
                 if (!cellData) {
                     cell.classList.add('empty');
                 } else {
-                    const devAnswer = document.createElement('div');
-                    devAnswer.className = 'dev-answer';
-                    devAnswer.textContent = cellData.answer;
-                    cell.appendChild(devAnswer);
-
                     if (cellData.clueNumber) {
                         const numDiv = document.createElement('div');
                         numDiv.className = 'clue-number';
@@ -262,68 +371,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 gridElement.appendChild(cell);
             }
         }
+        updateProgress();
+    }
+
+    function updateProgress() {
+        const inputs = [...document.querySelectorAll('.cell-input')];
+        const filledCount = inputs.filter(input => input.value.trim() !== '').length;
+        const totalCells = inputs.length;
+        if (progressText) {
+            progressText.textContent = `${filledCount}/${totalCells}`;
+        }
     }
 
     function renderClues(clueList, listElement, direction) {
-        clueList.forEach(clue => {
+        listElement.innerHTML = ''; // Clear previous clues
+        [...clueList].sort((a, b) => a.number - b.number).forEach(clue => {
             const li = document.createElement('li');
-            li.textContent = clue.number + '. ' + clue.clue;
+            li.textContent = `${clue.number}. ${clue.clue}`;
             li.dataset.number = clue.number;
             li.dataset.direction = direction;
             li.addEventListener('click', handleClueClick);
             listElement.appendChild(li);
         });
+        listElement.dataset.count = String(clueList.length);
     }
 
     // --- USER INPUT & INTERACTION ---
 
     function handleCellInput(e) {
         e.target.value = e.target.value.toUpperCase();
-        if (e.target.value.length === 0) return;
-        if (activeClueInfo) {
-            const { row: startRow, col: startCol, answer } = activeClueInfo;
-            const currentCellPos = e.target.parentElement.dataset;
-            let currentWordIndex = (currentDirection === 'across')
-                ? parseInt(currentCellPos.col) - startCol
-                : parseInt(currentCellPos.row) - startRow;
-            for (let i = currentWordIndex + 1; i < answer.length; i++) {
-                const r = (currentDirection === 'across') ? startRow : startRow + i;
-                const c = (currentDirection === 'across') ? startCol + i : startCol;
-                const nextCell = document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"]`);
-                if (nextCell) {
-                    const nextInput = nextCell.querySelector('input');
-                    if (nextInput && nextInput.value === '' && !nextInput.readOnly) {
-                        nextInput.focus();
-                        return;
-                    }
-                }
-            }
+        if (e.target.value.length === 0 || !activeClueInfo) return;
+
+        const { row: startRow, col: startCol, answer } = activeClueInfo;
+        const currentCellPos = e.target.parentElement.dataset;
+        let currentWordIndex = (currentDirection === 'across')
+            ? parseInt(currentCellPos.col) - startCol
+            : parseInt(currentCellPos.row) - startRow;
+        
+        if (currentWordIndex < answer.length - 1) {
+            const nextIndex = currentWordIndex + 1;
+            const r = (currentDirection === 'across') ? startRow : startRow + nextIndex;
+            const c = (currentDirection === 'across') ? startCol + nextIndex : startCol;
+            const nextCell = document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"] input`);
+            if (nextCell && !nextCell.readOnly) nextCell.focus();
         }
+        updateProgress();
     }
 
     function handleKeyDown(e) {
         const cell = e.target.parentElement;
         let { row, col } = cell.dataset;
-        row = parseInt(row);
-        col = parseInt(col);
+        row = parseInt(row); col = parseInt(col);
+
         if (e.key === 'Backspace') {
-            e.preventDefault();
             if (e.target.value !== '') {
                 e.target.value = '';
+                updateProgress();
                 return;
             }
-            if (activeClueInfo) {
-                const isAtStart = (currentDirection === 'across' && col === activeClueInfo.col) ||
-                                (currentDirection === 'down' && row === activeClueInfo.row);
-                if (isAtStart) return;
-            }
-            let prevR = row, prevC = col;
-            if (currentDirection === 'across') prevC--;
-            else prevR--;
-            const prevCell = document.querySelector(`.grid-cell[data-row="${prevR}"][data-col="${prevC}"]`);
-            if (prevCell && prevCell.querySelector('input')) prevCell.querySelector('input').focus();
+            e.preventDefault();
+            const prevR = (currentDirection === 'down') ? row - 1 : row;
+            const prevC = (currentDirection === 'across') ? col - 1 : col;
+            const prevCell = document.querySelector(`.grid-cell[data-row="${prevR}"][data-col="${prevC}"] input`);
+            if (prevCell) prevCell.focus();
+            updateProgress();
             return;
         }
+
         let nextR = row, nextC = col;
         switch (e.key) {
             case 'ArrowUp': nextR--; break;
@@ -332,10 +446,10 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'ArrowRight': nextC++; break;
             default: return;
         }
-        const nextCell = document.querySelector(`.grid-cell[data-row="${nextR}"][data-col="${nextC}"]`);
-        if (nextCell && nextCell.querySelector('input')) {
+        const nextCell = document.querySelector(`.grid-cell[data-row="${nextR}"][data-col="${nextC}"] input`);
+        if (nextCell) {
             e.preventDefault();
-            nextCell.querySelector('input').focus();
+            nextCell.focus();
         }
     }
     
@@ -344,16 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cellData) return;
         const hasAcross = cellData.words.some(w => w.direction === 'across');
         const hasDown = cellData.words.some(w => w.direction === 'down');
+        
         if (lastFocusedCell.row === row && lastFocusedCell.col === col) {
-            if (hasAcross && hasDown) {
-                currentDirection = currentDirection === 'across' ? 'down' : 'across';
-            }
+            if (hasAcross && hasDown) currentDirection = currentDirection === 'across' ? 'down' : 'across';
         } else {
-            const isCurrentDirectionValid = (currentDirection === 'across' && hasAcross) ||
-                                            (currentDirection === 'down' && hasDown);
-            if (!isCurrentDirectionValid) {
-                currentDirection = hasAcross ? 'across' : 'down';
-            }
+            const isCurrentDirectionValid = (currentDirection === 'across' && hasAcross) || (currentDirection === 'down' && hasDown);
+            if (!isCurrentDirectionValid) currentDirection = hasAcross ? 'across' : 'down';
         }
         lastFocusedCell = { row, col };
         highlightWord(row, col, currentDirection);
@@ -378,115 +488,120 @@ document.addEventListener('DOMContentLoaded', () => {
         activeClueInfo = currentPuzzleData.clues[direction].find(c => c.number === wordInfo.number);
         if (!activeClueInfo) return;
         document.querySelector(`li[data-number="${activeClueInfo.number}"][data-direction="${direction}"]`)?.classList.add('highlighted');
-        const answerLength = activeClueInfo.answer.length;
-        for (let i = 0; i < answerLength; i++) {
+        for (let i = 0; i < activeClueInfo.answer.length; i++) {
             const r = direction === 'across' ? activeClueInfo.row : activeClueInfo.row + i;
             const c = direction === 'across' ? activeClueInfo.col + i : activeClueInfo.col;
             document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"]`)?.classList.add('focused-word');
         }
     }
 
-    // --- PUZZLE CHECKING ---
+    // --- PUZZLE CHECKING & SUBMISSION ---
 
-    function checkPuzzle() {
+    function checkCompletion() {
+        checkAttempts++;
+        const inputs = [...document.querySelectorAll('.cell-input')];
+        const filled = inputs.filter(input => input.value.trim() !== '').length;
+        const total = inputs.length;
+        const completionPercent = ((filled / total) * 100).toFixed(1);
+        
+        console.log('[Analytics] Check attempt #' + checkAttempts, {
+            filled: filled,
+            total: total,
+            completion: completionPercent + '%'
+        });
+
+        if (filled === total) {
+            checkButton.classList.add('hidden');
+            submitButton.classList.remove('hidden');
+        } else {
+            incompleteOverlay.classList.remove('hidden');
+        }
+    }
+
+    function submitPuzzle() {
+        submitAttempts++;
         const inputs = document.querySelectorAll('.cell-input');
         let allCorrect = true;
         let correctCount = 0;
         let incorrectCount = 0;
-        let emptyCount = 0;
-        
-        checkAttempts++;
         
         inputs.forEach(input => {
-            input.classList.remove('correct', 'incorrect');
             const enteredValue = input.value.toUpperCase();
             const correctValue = input.dataset.answer;
-            if (enteredValue) {
-                if (enteredValue === correctValue) {
-                    input.classList.add('correct');
-                    input.readOnly = true;
-                    correctCount++;
-                } else {
-                    allCorrect = false;
-                    input.classList.add('incorrect');
-                    input.readOnly = false;
-                    incorrectCount++;
-                }
+            if (enteredValue === correctValue) {
+                input.classList.add('correct');
+                correctCount++;
             } else {
                 allCorrect = false;
-                input.readOnly = false;
-                emptyCount++;
+                incorrectCount++;
+                input.classList.add('incorrect-flash');
             }
         });
-
-        // Track this check attempt as a task
-        const totalCells = inputs.length;
-        const accuracy = totalCells > 0 ? (correctCount / totalCells * 100).toFixed(1) : 0;
         
-        console.log('[Analytics] Check attempt #' + checkAttempts, {
+        const accuracy = ((correctCount / inputs.length) * 100).toFixed(1);
+        console.log('[Analytics] Submit attempt #' + submitAttempts, {
             correct: correctCount,
             incorrect: incorrectCount,
-            empty: emptyCount,
-            accuracy: accuracy + '%'
+            accuracy: accuracy + '%',
+            allCorrect: allCorrect
         });
-        
-        const submitMetrics = {
-            check_attempts: checkAttempts,
-            accuracy_percent: accuracy,
-            correct_cells: correctCount,
-            incorrect_cells: incorrectCount,
-            empty_cells: emptyCount
-        };
-        const newlySubmittedAnswers = submitCompletedAnswers(submitMetrics);
-        console.log('[Analytics] Newly completed answers submitted:', newlySubmittedAnswers);
-        
+
         if (allCorrect) {
-            const totalXP = getSubmittedXpTotal();
-            
-            console.log('[Analytics] Puzzle completed!', {
-                totalXP: totalXP,
-                maxTotalXP: CROSSWORD_MAX_TOTAL_XP
+            clearInterval(timerInterval);
+            const timeTaken = GAME_DURATION - timeRemaining;
+            const newlySubmittedAnswers = submitCompletedAnswers({
+                check_attempts: checkAttempts,
+                submit_attempts: submitAttempts,
+                accuracy_percent: accuracy,
+                correct_cells: correctCount,
+                incorrect_cells: incorrectCount,
+                time_taken_seconds: timeTaken
             });
+            const finalScore = getSubmittedXpTotal();
+            console.log('[Analytics] Newly completed answers submitted:', newlySubmittedAnswers);
+            console.log(`[Analytics] Puzzle completed with score: ${finalScore} / ${CROSSWORD_MAX_TOTAL_XP}`);
+            scoreDisplayElement.textContent = finalScore;
+            inputs.forEach(input => input.readOnly = true);
             successOverlay.classList.remove('hidden');
         } else {
-            alert('Not quite right! The incorrect cells are marked in red.');
+            submitCompletedAnswers({
+                check_attempts: checkAttempts,
+                submit_attempts: submitAttempts,
+                accuracy_percent: accuracy,
+                correct_cells: correctCount,
+                incorrect_cells: incorrectCount,
+                failed_submit: true
+            });
+
+            setTimeout(() => {
+                inputs.forEach(input => {
+                    input.classList.remove('incorrect-flash');
+                    if (input.classList.contains('correct')) {
+                        input.readOnly = true;
+                    }
+                });
+            }, 2000); // Remove flash after 2 seconds
         }
     }
 
-    // --- SECRET CODES & EVENT LISTENERS ---
-
-    let keySequence = "";
-    const adminCode = "~asd";
-    const devCode = "~dev";
-    const devAnswersCode = "~adev";
-    const stopDevCode = "~sdev";
-
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        const key = (e.key === '`' || e.key === '~') ? '~' : e.key.toLowerCase();
-        keySequence += key;
-
-        if (keySequence.endsWith(adminCode)) {
-            adminPanel.classList.toggle('hidden');
-            keySequence = "";
-        } else if (keySequence.endsWith(devAnswersCode)) {
-            gameContainer.classList.add('dev-mode', 'dev-answers-mode');
-            keySequence = "";
-        } else if (keySequence.endsWith(devCode)) {
-            gameContainer.classList.toggle('dev-mode');
-            gameContainer.classList.remove('dev-answers-mode');
-            keySequence = "";
-        } else if (keySequence.endsWith(stopDevCode)) {
-            gameContainer.classList.remove('dev-mode', 'dev-answers-mode');
-            keySequence = "";
-        }
-
-        if (keySequence.length > 10) {
-            keySequence = "";
+    // --- EVENT LISTENERS ---
+    if(checkButton) checkButton.addEventListener('click', checkCompletion);
+    if(submitButton) submitButton.addEventListener('click', submitPuzzle);
+    if(restartButton) restartButton.addEventListener('click', () => location.reload());
+    if(homeButton) homeButton.addEventListener('click', () => { window.location.href = 'index.html'; });
+    if(incompleteOkButton) incompleteOkButton.addEventListener('click', () => incompleteOverlay.classList.add('hidden'));
+    if (backBtn) backBtn.addEventListener('click', () => { window.location.href = 'index.html'; });
+    if (hintBtn) hintBtn.addEventListener('click', () => { alert('Hint feature coming soon!'); });
+    
+    window.addEventListener('beforeunload', () => {
+        if (analyticsRunId && levelStartTime > 0) {
+            postAnalyticsDebug('session_left_incomplete', {
+                runId: analyticsRunId,
+                submittedLevels: submittedCrosswordLevels.size
+            });
+            console.log('[Analytics] Session ended before completing all answers.');
         }
     });
-
-    checkButton.addEventListener('click', checkPuzzle);
 
     function completeCurrentPuzzleForTest() {
         if (!ENABLE_DEV_COMPLETE_SHORTCUT) {
@@ -503,19 +618,21 @@ document.addEventListener('DOMContentLoaded', () => {
         inputs.forEach(input => {
             input.value = input.dataset.answer || '';
             input.readOnly = false;
+            input.classList.remove('incorrect-flash');
         });
-        console.log('DEV: Auto-completing crossword puzzle...');
-        checkPuzzle();
+        checkCompletion();
+        console.log('DEV: Auto-completing CrossWord puzzle...');
+        submitPuzzle();
     }
 
     window.__completeLevelForTest = completeCurrentPuzzleForTest;
 
     function handleDevCompleteKey(event) {
         if ((event.key && event.key.toLowerCase() === 'c') || event.code === 'KeyC') {
-            if (event.__crosswordDevCompleteHandled) {
+            if (event.__crosswordCrossWordDevCompleteHandled) {
                 return;
             }
-            event.__crosswordDevCompleteHandled = true;
+            event.__crosswordCrossWordDevCompleteHandled = true;
             event.preventDefault();
             completeCurrentPuzzleForTest();
         }
@@ -531,16 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Track incomplete sessions when user leaves
-    window.addEventListener('beforeunload', () => {
-        if (levelStartTime > 0 && submittedCrosswordLevels.size < crosswordLevels.length) {
-            postAnalyticsDebug('session_ended_incomplete', {
-                completedAnswers: submittedCrosswordLevels.size,
-                totalAnswers: crosswordLevels.length
-            });
-        }
-    });
-    
     // Start Game
     startGame();
 });
+
